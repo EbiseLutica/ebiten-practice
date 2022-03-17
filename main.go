@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
@@ -44,6 +45,9 @@ var cellImage = ebiten.NewImage(CELL_SIZE, CELL_SIZE)
 
 // ライフゲーム再生中かどうか。falseであれば描画モードとなる
 var isPlaying = false
+
+// ヘルプを描画するかどうか。
+var isVisibleHelp = true
 
 // 現在のフレーム数
 var frame = 0
@@ -94,6 +98,22 @@ func searchAlive(x int, y int) int {
 	return count
 }
 
+// テーブルを初期化する
+func clear() {
+	for x := 0; x < TABLE_COLUMN; x++ {
+		for y := 0; y < TABLE_ROW; y++ {
+			tableR[x][y] = false
+		}
+	}
+	if tableR == &tableA {
+		tableR = &tableB
+		tableU = &tableA
+	} else {
+		tableR = &tableA
+		tableU = &tableB
+	}
+}
+
 // 次世代を計算する
 func calculateNext() {
 	for x := 0; x < TABLE_COLUMN; x++ {
@@ -127,17 +147,24 @@ func processInput() {
 	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
 		isPlaying = !isPlaying
 	}
-
-	if isPlaying {
-		return
+	// ヘルプ切り替え
+	if inpututil.IsKeyJustPressed(ebiten.KeyF1) {
+		isVisibleHelp = !isVisibleHelp
 	}
+
+	// if isPlaying {
+	// 	return
+	// }
 
 	// 編集モードであれば、セルの編集を受け付ける
 	var mx, my = ebiten.CursorPosition()
-	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-		var cx = int(mx / CELL_SIZE)
-		var cy = int(my / CELL_SIZE)
-		tableR[cx][cy] = !tableR[cx][cy]
+	var cx = int(mx / CELL_SIZE)
+	var cy = int(my / CELL_SIZE)
+	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight) {
+		tableR[cx][cy] = false
+	}
+	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+		tableR[cx][cy] = true
 	}
 }
 
@@ -148,13 +175,11 @@ type Game struct{}
 func (g *Game) Update() error {
 	processInput()
 	if isPlaying {
-		ebiten.SetWindowTitle("[SPACE]: Stop")
 		frame++
 		if frame%4 == 0 {
 			calculateNext()
 		}
 	} else {
-		ebiten.SetWindowTitle("[SPACE]: Start")
 		frame = 0
 	}
 	return nil
@@ -162,6 +187,17 @@ func (g *Game) Update() error {
 
 // Ebiten - レンダリング
 func (g *Game) Draw(screen *ebiten.Image) {
+	if isVisibleHelp {
+		var spaceVehaviorString = "Play"
+		if isPlaying {
+			spaceVehaviorString = "Stop"
+		}
+		ebitenutil.DebugPrint(screen, "Mouse Left: Draw")
+		ebitenutil.DebugPrint(screen, "Mouse Light: Erase")
+		ebitenutil.DebugPrint(screen, "[SPACE]: "+spaceVehaviorString)
+		ebitenutil.DebugPrint(screen, "[C]: Clear the Table")
+		ebitenutil.DebugPrint(screen, "[F1]: Toggle Help")
+	}
 	for x := 0; x < TABLE_COLUMN; x++ {
 		for y := 0; y < TABLE_ROW; y++ {
 			if tableR[x][y] {
